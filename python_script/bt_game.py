@@ -24,7 +24,7 @@ WAIT_TIME_CANCEL = 30
 
 async def blind_test_game(client, message, roles_allowed, score_max=3):
 
-    server = message.server
+    serv = message.server
     game_channel = message.channel
     content = message.content
 
