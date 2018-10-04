@@ -22,137 +22,131 @@ WAITING_DISPLAY = 5
 WAIT_TIME_SKIP = 30
 WAIT_TIME_CANCEL = 30
 
-async def blind_test_game(client, message, roles_allowed):
-    #if user_role == HIGHEST_ROLE:
-    if True:
-        for server in client.servers:
-            serv = server
+async def blind_test_game(client, message, roles_allowed, score_max=3):
 
-        game_channel = message.channel
-        content = message.content
-        score_max = 3
+    serv = message.server
+    game_channel = message.channel
+    content = message.content
 
-        if len(content.split()) > 1:
-            try:
-                score_temp = int((content.split())[1])
-                if isinstance(score_temp, int):
-                    if score_temp < 8:
-                        score_max = score_temp
-            except:
-                await client.send_message(game_channel, 'Valeur rentrée incorrect')
-            finally:
-                await client.send_message(game_channel, 'La partie se jouera en {} points'.format(score_max))
-
-
-        ###################################################################
-        """Create List of players"""
-        ###################################################################
-
-        player_list = await create_player_list(client, game_channel, message.author)
-
-        if len(player_list) < NB_MIN_PLAYERS:
-            return await client.send_message(game_channel, 'La partie est annulé le nombre de joueur est insuffisant')
-        else:
-            await client.send_message(game_channel, 'La partie va pouvoir commencer ! En attente du joueur hôte !')
-
-        embed_player = discord.Embed(title="Liste des joueurs", color=0x00ff00)
-
-        index_dic_players = {}
-        i = 0
-        for player in player_list:
-            index_dic_players[player] = i
-            value = 'Score: {}'.format(player_list[player])
-            embed_player.add_field(name=player, value=value, inline=False)
-            i = i + 1
-
-        msg_embed_score = await client.send_message(message.channel, embed=embed_player)
-
-
-        ###################################################################
-        """Create Private channel"""
-        ###################################################################
-
-
-        # We define permissions for everybody
-        # We create a secret channel where only bot and person who calls
-        # command can access
+    if len(content.split()) > 1:
         try:
-            perm_everyone = discord.PermissionOverwrite(read_messages=False)
-            perm_mine = discord.PermissionOverwrite(read_messages=True)
-            perm_author = discord.PermissionOverwrite(read_messages=True)
-            bt_channel = await client.create_channel(serv, 'Blind-Test', (serv.default_role, perm_everyone), (serv.me, perm_mine), (message.author, perm_author))
-
-
-            ###################################################################
-            """Start the game in a private channel | Bot ask player to give
-            image with all informations"""
-            ###################################################################
-
-            # Just notification to be warned
-            notif = '''Hey {} ! Prêt pour ton blind-test ? C'est ici que ça se passe !
-            Tu as juste à suivre les instructions qui suivent !
-            '''.format(message.author.mention)
-            await client.send_message(bt_channel, notif)
-
-            ###################################################################
-            """Loop for all points"""
-            ###################################################################
-
-            best_score = 0
-            cancel = False
-
-            while best_score < score_max and cancel == False:
-
-                list_info = await player_choose_image(client, message.author, bt_channel, game_channel)
-
-                # If the player want to change an information he can or just write "yes" to
-                # send the embed with image and informations
-                await player_correction_image(client, message.author, list_info, bt_channel)
-
-                ###################################################################
-                """Players have to find the right answer !"""
-                ###################################################################
-
-                # We hide the answer but we give the number of letters
-                # We hide only letters and not ponctuations or space
-
-                current_winner, cancel = await find_answer(client, game_channel, list_info, player_list)
-
-                ###################################################################
-                """Modify and Display the current score"""
-                ###################################################################
-
-                if current_winner is not None and cancel == False:
-                    await client.purge_from(bt_channel)
-                    #await client.purge_from(game_channel, check=is_bot)
-
-                    msg_current_winner = 'Le joueur {} a remporté le point'.format(current_winner)
-                    await client.send_message(game_channel, msg_current_winner)
-
-                    best_score = find_best_score(player_list)
-                    value = 'Score: {}'.format(player_list[current_winner])
-                    # We remove the old embed score and replace with the new one
-                    await client.delete_message(msg_embed_score)
-                    embed_player.set_field_at(index_dic_players[current_winner], name=current_winner, value=value, inline=False)
-                    msg_embed_score = await client.send_message(game_channel, embed=embed_player)
-
-            ###################################################################
-            """Remove the blind test channel"""
-            ###################################################################
-
-            if cancel == True:
-                text_cancel = 'La partie a été annulée suite à un vote !'
-                await client.send_message(game_channel, text_cancel)
-            else:
-                best_player = get_best_player(player_list)
-                msg_winning = 'La partie est terminée ! Bravo au joueur {} qui la remporte !'.format(best_player)
-                await client.send_message(game_channel, msg_winning)
-
-        except:
-            await client.send_message(game_channel, 'Erreur lors du déroulement de la partie. Celle-ci est annulée !')
-            raise Exception()
+            score_temp = int((content.split())[1])
+            if score_temp < 8:
+                score_max = score_temp
+        except ValueError:
+            await client.send_message(game_channel, 'Valeur rentrée incorrect')
         finally:
-            await client.delete_channel(bt_channel)
+            await client.send_message(game_channel, 'La partie se jouera en {} points'.format(score_max))
+
+
+    ###################################################################
+    # Create List of players
+    ###################################################################
+
+    player_list = await create_player_list(client, game_channel, message.author)
+
+    if len(player_list) < NB_MIN_PLAYERS:
+        return await client.send_message(game_channel, 'La partie est annulé le nombre de joueur est insuffisant')
+    else:
+        await client.send_message(game_channel, 'La partie va pouvoir commencer ! En attente du joueur hôte !')
+
+    embed_player = discord.Embed(title="Liste des joueurs", color=0x00ff00)
+
+    index_dic_players = {}
+    
+    for i, player in enumerate(player_list):
+        index_dic_players[player] = i
+        value = 'Score: {}'.format(player_list[player])
+        embed_player.add_field(name=player, value=value, inline=False)
+
+    msg_embed_score = await client.send_message(message.channel, embed=embed_player)
+
+
+    ###################################################################
+    """Create Private channel"""
+    ###################################################################
+
+
+    # We define permissions for everybody
+    # We create a secret channel where only bot and person who calls
+    # command can access
+    try:
+        perm_everyone = discord.PermissionOverwrite(read_messages=False)
+        perm_mine = discord.PermissionOverwrite(read_messages=True)
+        perm_author = discord.PermissionOverwrite(read_messages=True)
+        bt_channel = await client.create_channel(serv, 'Blind-Test', (serv.default_role, perm_everyone), (serv.me, perm_mine), (message.author, perm_author))
+
+
+        ###################################################################
+        """Start the game in a private channel | Bot ask player to give
+        image with all informations"""
+        ###################################################################
+
+        # Just notification to be warned
+        notif = '''Hey {} ! Prêt pour ton blind-test ? C'est ici que ça se passe !
+        Tu as juste à suivre les instructions qui suivent !
+        '''.format(message.author.mention)
+        await client.send_message(bt_channel, notif)
+
+        ###################################################################
+        """Loop for all points"""
+        ###################################################################
+
+        best_score = 0
+        cancel = False
+
+        while best_score < score_max and not cancel:
+
+            list_info = await player_choose_image(client, message.author, bt_channel, game_channel)
+
+            # If the player want to change an information he can or just write "yes" to
+            # send the embed with image and informations
+            await player_correction_image(client, message.author, list_info, bt_channel)
+
+            ###################################################################
+            """Players have to find the right answer !"""
+            ###################################################################
+
+            # We hide the answer but we give the number of letters
+            # We hide only letters and not ponctuations or space
+
+            current_winner, cancel = await find_answer(client, game_channel, list_info, player_list)
+
+            ###################################################################
+            """Modify and Display the current score"""
+            ###################################################################
+
+            if current_winner and not cancel:
+                await client.purge_from(bt_channel)
+                #await client.purge_from(game_channel, check=is_bot)
+
+                msg_current_winner = 'Le joueur {} a remporté le point'.format(current_winner)
+                await client.send_message(game_channel, msg_current_winner)
+
+                best_score = find_best_score(player_list)
+                value = 'Score: {}'.format(player_list[current_winner])
+                # We remove the old embed score and replace with the new one
+                await client.delete_message(msg_embed_score)
+                embed_player.set_field_at(index_dic_players[current_winner], name=current_winner, value=value, inline=False)
+                msg_embed_score = await client.send_message(game_channel, embed=embed_player)
+
+        ###################################################################
+        """Remove the blind test channel"""
+        ###################################################################
+
+        if cancel:
+            text_cancel = 'La partie a été annulée suite à un vote !'
+            await client.send_message(game_channel, text_cancel)
+        else:
+            best_player = get_best_player(player_list)
+            msg_winning = 'La partie est terminée ! Bravo au joueur {} qui la remporte !'.format(best_player)
+            await client.send_message(game_channel, msg_winning)
+
+    except:
+        await client.send_message(game_channel, 'Erreur lors du déroulement de la partie. Celle-ci est annulée !')
+        raise Exception()
+    finally:
+        await client.delete_channel(bt_channel)
 
 
 async def create_player_list(client, game_channel, author):
@@ -161,9 +155,9 @@ async def create_player_list(client, game_channel, author):
     msg_game = '''Pour rejoindre la partie écrivez: join '''
     await client.send_message(game_channel, msg_game)
     msg = ''
-    while msg is not None or len(player_list) > NB_MAX_PLAYERS:
+    while msg or len(player_list) > NB_MAX_PLAYERS:
         msg = await client.wait_for_message(channel=game_channel, timeout=10)
-        if msg is not None:
+        if msg:
             if client.user != msg.author and msg.author != author and msg.author not in player_list and (msg.content).lower() == 'join':
                 #message.author != msg.author and
                 player_list[msg.author] = 0
@@ -184,7 +178,7 @@ async def player_choose_image(client, author, bt_channel, game_channel):
             image = msg.content
             valid, info_image = check_image(image)
 
-            if valid == True:
+            if valid:
                 list_info['url'] = msg.content
                 await client.send_message(bt_channel, info_image)
 
@@ -198,7 +192,7 @@ async def player_choose_image(client, author, bt_channel, game_channel):
             clue = msg.content
 
             valid, info_clue = check_clue(clue)
-            if valid == True:
+            if valid:
                 list_info['clue'] = clue
                 await client.send_message(bt_channel, info_clue)
             else:
@@ -212,7 +206,7 @@ async def player_choose_image(client, author, bt_channel, game_channel):
 
             valid, info_answer = check_answer(answer)
 
-            if valid == True:
+            if valid:
                 list_info['answer'] = answer.lower()
                 await client.send_message(bt_channel, info_answer)
             else:
@@ -248,14 +242,14 @@ async def player_correction_image(client, author, list_info, bt_channel):
     msg_cmd = '''Commandes possibles: 'yes', 'image', 'clue', 'answer' '''
     msg_next_cmd = '''Entrez votre prochaine commande: 'yes', 'image', 'clue', 'answer' '''
 
-    while end == False:
+    while not end:
         msg = await client.wait_for_message(author=author, channel=bt_channel)
         rep = msg.content
 
-        if rep == 'yes':
+        if rep.lower().startswith('yes'):
             end = True
         else:
-            if rep == 'image':
+            if rep.lower().startswith('image'):
                 info = '''Donne la nouvelle url de ton image (Attention il ne faut que l'image)'''
                 await client.send_message(bt_channel, info)
                 msg_image = await client.wait_for_message(author=author, channel=bt_channel)
@@ -263,29 +257,29 @@ async def player_correction_image(client, author, list_info, bt_channel):
                 url_image = msg_image.content
                 valid, info_image = check_image(url_image)
 
-                if valid == True:
+                if valid:
                     list_info['url'] = url_image
                     await client.send_message(bt_channel, info_image)
 
                 else:
-                    info_image = '{} La précédente image a été conservé'.format(info_image)
+                    info_image = '{} La précédente image a été conservée'.format(info_image)
                     await client.send_message(bt_channel, info_image)
 
-            elif rep == 'clue':
+            elif rep.lower().startswith('clue'):
                 info = '''Donne un nouvel indice ! Attention tu es limité par la taille (140 caractères)'''
                 await client.send_message(bt_channel, info)
                 msg_clue = await client.wait_for_message(author=author, channel=bt_channel)
                 clue = msg_clue.content
 
                 valid, info_clue = check_clue(clue)
-                if valid == True:
+                if valid:
                     list_info['clue'] = clue
                     await client.send_message(bt_channel, info_clue)
                 else:
                     info_clue = '{} Le précédent indice a été conservé'.format(info_clue)
                     await client.send_message(bt_channel, info_clue)
 
-            elif rep == 'answer':
+            elif rep.lower().startswith('answer'):
                 info = '''Donne une nouvelle réponse ! Attention à l'orthographe !'''
                 await client.send_message(bt_channel, info)
                 msg_answer = await client.wait_for_message(author=author, channel=bt_channel)
@@ -293,7 +287,7 @@ async def player_correction_image(client, author, list_info, bt_channel):
 
                 valid, info_answer = check_answer(answer)
 
-                if valid == True:
+                if valid:
                     list_info['answer'] = answer.lower()
                     await client.send_message(bt_channel, info_answer)
                 else:
@@ -338,7 +332,7 @@ async def find_answer(client, game_channel, list_info, player_list):
 
     t0 = time.time()
 
-    while end == False and cancel == False and skip_image == False:
+    while not end and not cancel and not skip_image:
         t1 = time.time()
 
         msg = await client.wait_for_message(timeout=WAIT_TIME_LETTER, channel=game_channel)
@@ -373,10 +367,10 @@ async def find_answer(client, game_channel, list_info, player_list):
                 elif msg.content == 'skip' and skip_nb == 0:
                     skip_image = await skip_question(client, player_list, game_channel)
                     skip_nb = skip_nb + 1
-                    if skip_image == True:
+                    if skip_image:
                         current_winner = None
 
-                elif ratio>=ERROR_RATIO and find == False:
+                elif ratio>=ERROR_RATIO and not find:
                     #info = 'Le joueur {} a donné la bonne réponse: {}'.format(msg.author, msg.content)
                     player_list[msg.author] = player_list[msg.author] + 1
                     current_winner = msg.author
@@ -397,8 +391,7 @@ async def skip_question(client, player_list, game_channel):
     skip_text = '''Un vote pour passer l'image a été lancé. Entrez 'y' pour accepter ou 'n' pour refuser. Il faut au moins {} 'y' pour skip.'''.format(min_to_skip)
     bot_msg = await client.send_message(game_channel, skip_text)
 
-    nb_yes = 0
-    nb_no = 0
+    nb_yes = nb_no = 0
     list_who_votes = []
 
     # Timer to cancel
@@ -407,7 +400,7 @@ async def skip_question(client, player_list, game_channel):
 
     while (nb_no + nb_yes) < len(player_list) and nb_yes <= min_to_skip and t1-t0 < WAIT_TIME_SKIP:
         msg = await client.wait_for_message(timeout=10, channel=game_channel)
-        if msg is not None:
+        if msg:
             if msg.author in player_list:
                 ans = (msg.content).lower()
                 if ans == 'y' or ans == 'yes' and msg.author not in list_who_votes:
@@ -446,7 +439,7 @@ async def cancel_game(client, player_list, game_channel):
 
     while (nb_no + nb_yes) < len(player_list) and nb_yes <= min_to_cancel and t1-t0 < WAIT_TIME_CANCEL:
         msg = await client.wait_for_message(timeout=10, channel=game_channel)
-        if msg is not None:
+        if msg:
             if msg.author in player_list:
                 ans = (msg.content).lower()
                 if ans == 'y' or ans == 'yes' and msg.author not in list_who_votes:
@@ -484,7 +477,7 @@ def discover_letter(answer_hidden, answer):
     end = False
     new_hidden_answer = ''
 
-    while end == False:
+    while not end:
         nb_alea = randint(0, len(answer)-1)
         if answer_hidden[nb_alea] == '_':
             # We replace hidden letter by the good one
